@@ -362,4 +362,23 @@ void Scene::writeImageToPPMFile(Camera *camera)
 void Scene::forwardRenderingPipeline(Camera *camera)
 {
 	// TODO: Implement this function
+
+
+	// Model Transformations
+
+	// Camera Transformations
+
+	// Projection Transformations
+
+	// Clipping
+
+	// Culling
+
+
+	// Rasterization
+
+	//viewport Transformations
+
+	//fragment Processing
+	
 }
