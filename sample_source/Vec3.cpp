@@ -1,5 +1,6 @@
 #include <iomanip>
 #include "Vec3.h"
+#include <cmath>
 
 Vec3::Vec3()
 {
@@ -43,4 +44,13 @@ std::ostream &operator<<(std::ostream &os, const Vec3 &v)
 {
     os << std::fixed << std::setprecision(6) << "Vertex3D [" << v.x << ", " << v.y << ", " << v.z << "]";
     return os;
+}
+
+Vec3 Vec3::unit() const
+{
+    double len = std::sqrt(x*x + y*y + z*z);
+    if (len < 1e-12)
+        return Vec3(0, 0, 0); // sıfıra çok yakın vektör
+    return Vec3(x/len, y/len, z/len);
+
 }

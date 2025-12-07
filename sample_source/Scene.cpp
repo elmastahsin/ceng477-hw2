@@ -363,22 +363,41 @@ void Scene::forwardRenderingPipeline(Camera *camera)
 {
 	// TODO: Implement this function
 
+	//her mesh için matriceleri oluştur 
+	for(int i=0; i < this->instances.size(); i++){
+		Instance currentInstance = *(this->instances[i]);
+		Matrix4 modelMatrix = getIdentityMatrix();
 
-	// Model Transformations
+		//model matrixi oluştur
+		for(int j=0; j < currentInstance.numberOfTransformations; j++){
+			char tType = currentInstance.transformationTypes[j];
+			int tId = currentInstance.transformationIds[j];
 
-	// Camera Transformations
+			Matrix4 transformation_matrix;
+			if(tType == 't'){
+				Translation *t = this->translations[tId - 1];
+				transformation_matrix = translationMatrix(t);
+			}
+			else if(tType == 's'){
+				Scaling *s = this->scalings[tId - 1];
+				transformation_matrix = scalingMatrix(s);
+			}
+			else if(tType == 'r'){
+				Rotation *r = this->rotations[tId - 1];
+				transformation_matrix = rotationMatrix(r);
+			}
+			
+			modelMatrix = multiplyMatrixWithMatrix(transformation_matrix, modelMatrix);
+		}
 
-	// Projection Transformations
-
-	// Clipping
-
-	// Culling
+		//meshlere uygula
 
 
-	// Rasterization
+	}
 
-	//viewport Transformations
 
-	//fragment Processing
+	// kamera için projection matrix oluştur
+
 	
+
 }

@@ -12,6 +12,8 @@ public:
 
     double getNthComponent(int n);
 
+    Vec3 unit() const;
+
     friend std::ostream &operator<<(std::ostream &os, const Vec3 &v);
 };
 

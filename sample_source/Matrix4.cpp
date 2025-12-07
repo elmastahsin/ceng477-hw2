@@ -47,3 +47,18 @@ std::ostream &operator<<(std::ostream &os, const Matrix4 &m)
 
     return os;
 }
+
+Matrix4 Matrix4::transpose()
+{
+    Matrix4 result;
+
+    for (int i = 0; i < 4; i++)
+    {
+        for (int j = 0; j < 4; j++)
+        {
+            result.values[i][j] = this->values[j][i];
+        }
+    }
+
+    return result;
+}
