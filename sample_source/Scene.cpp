@@ -370,8 +370,22 @@ void Scene::forwardRenderingPipeline(Camera *camera)
 
 	vector<Triangle *> newTriangles;
 	
+	camMatrix = cameraTransformationMatrix(camera);
+
+	//projection matrix 
+	if(camera->projectionType == PERSPECTIVE_PROJECTION){
+		projMatrix = perspectiveMatrix(camera);
+	}
+	else{
+		projMatrix = orthographicMatrix(camera);
+	}
+
+
+	vpMatrix = viewportMatrix(camera);
+
 	//her mesh için matriceleri oluştur 
 	for(int i=0; i < this->instances.size(); i++){
+		newTriangles.clear(); //her instance için yeni üçgenler listesi oluştur
 		Instance currentInstance = *(this->instances[i]);
 		Matrix4 modelMatrix = getIdentityMatrix();
 
@@ -395,98 +409,305 @@ void Scene::forwardRenderingPipeline(Camera *camera)
 			}
 			
 			modelMatrix = multiplyMatrixWithMatrix(transformation_matrix, modelMatrix);
+		}
 
-			Mesh currentMesh = currentInstance.mesh;
+		Mesh currentMesh = currentInstance.mesh;
 
-			for(int k=0; k < currentMesh.numberOfTriangles; k++){
-				Triangle *currentTriangle = new Triangle(currentMesh.triangles[k]);
+		for(int k=0; k < currentMesh.numberOfTriangles; k++){
+			Triangle *currentTriangle = new Triangle(currentMesh.triangles[k]);
 
-				Vec4WithColor v1(currentTriangle->v1.x, currentTriangle->v1.y, currentTriangle->v1.z, 1.0, currentTriangle->v1.color);
-				Vec4WithColor v2(currentTriangle->v2.x, currentTriangle->v2.y, currentTriangle->v2.z, 1.0, currentTriangle->v2.color);
-				Vec4WithColor v3(currentTriangle->v3.x, currentTriangle->v3.y, currentTriangle->v3.z, 1.0, currentTriangle->v3.color);
+			Vec4WithColor v1(currentTriangle->v1.x, currentTriangle->v1.y, currentTriangle->v1.z, 1.0, currentTriangle->v1.color);
+			Vec4WithColor v2(currentTriangle->v2.x, currentTriangle->v2.y, currentTriangle->v2.z, 1.0, currentTriangle->v2.color);
+			Vec4WithColor v3(currentTriangle->v3.x, currentTriangle->v3.y, currentTriangle->v3.z, 1.0, currentTriangle->v3.color);
 
-				//model matrix uygula
-				v1 = multiplyMatrixWithVec4WithColor(modelMatrix, v1);
-				v2 = multiplyMatrixWithVec4WithColor(modelMatrix, v2);	
-				v3 = multiplyMatrixWithVec4WithColor(modelMatrix, v3);
+			//model matrix uygula
+			v1 = multiplyMatrixWithVec4WithColor(modelMatrix, v1);
+			v2 = multiplyMatrixWithVec4WithColor(modelMatrix, v2);	
+			v3 = multiplyMatrixWithVec4WithColor(modelMatrix, v3);
 
-				//view matrix uygula
-				camMatrix = cameraTransformationMatrix(camera);
-				v1 = multiplyMatrixWithVec4WithColor(camMatrix, v1);
-				v2 = multiplyMatrixWithVec4WithColor(camMatrix, v2);
-				v3 = multiplyMatrixWithVec4WithColor(camMatrix, v3);
+			//view matrix uygula
+			v1 = multiplyMatrixWithVec4WithColor(camMatrix, v1);
+			v2 = multiplyMatrixWithVec4WithColor(camMatrix, v2);
+			v3 = multiplyMatrixWithVec4WithColor(camMatrix, v3);
 
-				//projection matrix uygula
-				if(camera->projectionType == PERSPECTIVE_PROJECTION){
-					projMatrix = perspectiveMatrix(camera);
+			//projection matrix uygula
+			v1 = multiplyMatrixWithVec4WithColor(projMatrix, v1);
+			v2 = multiplyMatrixWithVec4WithColor(projMatrix, v2);
+			v3 = multiplyMatrixWithVec4WithColor(projMatrix, v3);
+
+			//vertice perspective divide
+			if(v1.t != 0.0) {
+				v1.x = v1.x / v1.t;
+				v1.y = v1.y / v1.t;
+				v1.z = v1.z / v1.t;
+				v1.t = 1.0;
+			}
+
+			if(v2.t != 0.0){
+				v2.x = v2.x / v2.t;
+				v2.y = v2.y / v2.t;
+				v2.z = v2.z / v2.t;
+				v2.t = 1.0;
+			}
+
+			if(v3.t != 0.0){
+				v3.x = v3.x / v3.t;
+				v3.y = v3.y / v3.t;
+				v3.z = v3.z / v3.t;
+				v3.t = 1.0;
+			}
+
+			/*
+			//viewport matrix uygula
+			v1 = multiplyMatrixWithVec4WithColor(vpMatrix, v1);
+			v2 = multiplyMatrixWithVec4WithColor(vpMatrix, v2);
+			v3 = multiplyMatrixWithVec4WithColor(vpMatrix, v3);
+
+			//yeni üçgeni ekle, current triangle koordinatları güncelle
+			currentTriangle->v1.x = v1.x;
+			currentTriangle->v1.y = v1.y;
+			currentTriangle->v1.z = v1.z;
+			currentTriangle->v1.color = v1.color;
+			currentTriangle->v2.x = v2.x;
+			currentTriangle->v2.y = v2.y;
+			currentTriangle->v2.z = v2.z;
+			currentTriangle->v2.color = v2.color;
+			currentTriangle->v3.x = v3.x;
+			currentTriangle->v3.y = v3.y;
+			currentTriangle->v3.z = v3.z;
+			currentTriangle->v3.color = v3.color;
+			newTriangles.push_back(currentTriangle);
+			*/
+
+						
+			// --- wireframe clipping in NDC (optional, for WIREFRAME_INSTANCE) ---
+			if (currentInstance.instanceType == WIREFRAME_INSTANCE)
+			{
+				// For each edge, make a copy and clip it
+				Vec4WithColor e1v0 = v1;
+				Vec4WithColor e1v1 = v2;
+				if (lbClipping(e1v0, e1v1))
+				{
+					// Convert to screen: apply viewport
+					e1v0 = multiplyMatrixWithVec4WithColor(vpMatrix, e1v0);
+					e1v1 = multiplyMatrixWithVec4WithColor(vpMatrix, e1v1);
+
+					// Now you can draw this edge (midpoint/Bresenham) using e1v0/e1v1
+					// e.g. drawLineMidpoint(e1v0, e1v1);
 				}
-				else{
-					projMatrix = orthographicMatrix(camera);
+
+				Vec4WithColor e2v0 = v2;
+				Vec4WithColor e2v1 = v3;
+				if (lbClipping(e2v0, e2v1))
+				{
+					e2v0 = multiplyMatrixWithVec4WithColor(vpMatrix, e2v0);
+					e2v1 = multiplyMatrixWithVec4WithColor(vpMatrix, e2v1);
+					// drawLineMidpoint(e2v0, e2v1);
 				}
 
-				v1 = multiplyMatrixWithVec4WithColor(projMatrix, v1);
-				v2 = multiplyMatrixWithVec4WithColor(projMatrix, v2);
-				v3 = multiplyMatrixWithVec4WithColor(projMatrix, v3);
+				Vec4WithColor e3v0 = v3;
+				Vec4WithColor e3v1 = v1;
+				if (lbClipping(e3v0, e3v1))
+				{
+					e3v0 = multiplyMatrixWithVec4WithColor(vpMatrix, e3v0);
+					e3v1 = multiplyMatrixWithVec4WithColor(vpMatrix, e3v1);
+					// drawLineMidpoint(e3v0, e3v1);
+				}
 
-				//viewport matrix uygula
-				vpMatrix = viewportMatrix(camera);
+				// For wireframe, you *don't* need to push this triangle into newTriangles.
+			}
+			else
+			{
+				// SOLID instance: no clipping here (as your HW says)
+				// Just do viewport and then store in Triangle / newTriangles as before.
+
 				v1 = multiplyMatrixWithVec4WithColor(vpMatrix, v1);
 				v2 = multiplyMatrixWithVec4WithColor(vpMatrix, v2);
 				v3 = multiplyMatrixWithVec4WithColor(vpMatrix, v3);
 
-				//verticeleri homogene böl
-				v1.x = v1.x / v1.t;
-				v1.y = v1.y / v1.t;
-				v1.z = v1.z / v1.t;
+				currentTriangle->v1.x = v1.x; currentTriangle->v1.y = v1.y; currentTriangle->v1.z = v1.z;
+				currentTriangle->v1.color = v1.color;
+				currentTriangle->v2.x = v2.x; currentTriangle->v2.y = v2.y; currentTriangle->v2.z = v2.z;
+				currentTriangle->v2.color = v2.color;
+				currentTriangle->v3.x = v3.x; currentTriangle->v3.y = v3.y; currentTriangle->v3.z = v3.z;
+				currentTriangle->v3.color = v3.color;
 
-				v2.x = v2.x / v2.t;
-				v2.y = v2.y / v2.t;
-				v2.z = v2.z / v2.t;
-
-				v3.x = v3.x / v3.t;
-				v3.y = v3.y / v3.t;
-				v3.z = v3.z / v3.t;
-
-				//yeni üçgeni ekle
 				newTriangles.push_back(currentTriangle);
+			}
+
+		}
+
+		//backface culling 
+		if(this->cullingEnabled){
+			//yeni normalleri hesapla
+
+			for(int i=0; i < newTriangles.size(); i++){
+				Triangle *tri = newTriangles[i];
+
+				Vec3 a(tri->v1.x, tri->v1.y, tri->v1.z);
+				Vec3 b(tri->v2.x, tri->v2.y, tri->v2.z);
+				Vec3 c(tri->v3.x, tri->v3.y, tri->v3.z);
+
+				Vec3 normal = tri->triangleNormal(a, b, c);
+
+				Vec3 v = a;
+				double nv = dotProductVec3(normal, v);
+
+				//dot product pozitifse üçgeni sil
+				if(nv > 0){
+					newTriangles.erase(newTriangles.begin() + i);
+					i--; 
+				}
+			}
+		}
+
+/*
+		//liang-barsky clipping eğer wireframe ise 
+		if(currentInstance.instanceType == WIREFRAME_INSTANCE){
+			//her üçgen için
+			for(int i=0; i < newTriangles.size(); i++){
+				Triangle *tri = newTriangles[i];
 
 			}
 		}
-	}
-
-
-	//backface culling 
-	if(this->cullingEnabled){
-		//yeni normalleri hesapla
-
-		for(int i=0; i < newTriangles.size(); i++){
-			Triangle *tri = newTriangles[i];
-
-			Vec3 a(tri->v1.x, tri->v1.y, tri->v1.z);
-			Vec3 b(tri->v2.x, tri->v2.y, tri->v2.z);
-			Vec3 c(tri->v3.x, tri->v3.y, tri->v3.z);
-
-			Vec3 normal = tri->triangleNormal(a, b, c);
-
-			Vec3 v = a;
-			double nv = dotProductVec3(normal, v);
-
-			//dot product pozitifse üçgeni sil
-			if(nv > 0){
-				newTriangles.erase(newTriangles.begin() + i);
-				i--; 
-			}
+		else{
+			//solid instance ise clipping yok
+			
+		
 		}
-
-
-	}
-
-	//clipping  
-
-
+*/
 
 	//rasterization
 
-	
+	//draw triangles
 
+	}
+
+	
+}
+
+bool visible(double den, double num, double &tE, double &tL)
+{
+	double t;
+	if(num>0) return false;
+
+	if(den>0)
+	{		
+		t = num/den;
+		if(t>tL) return false;
+		if(t>tE) tE = t;
+	}
+	else
+	{
+		t = num/den;
+		if(t<tE) return false;
+		if(t<tL) tL = t;
+	}
+	
+	return true;
+}
+
+/*
+bool lbClipping(double xmin, double xmax, double ymin, double ymax, 
+					double &x0, double &y0, double &x1, double &y1)
+{
+	double dx = x1 - x0;
+	double dy = y1 - y0;
+
+	double tE = 0.0;
+	double tL = 1.0;
+
+	//sol
+	if(!lbVisible(dx, xmin - x0, tE, tL)) return false;
+	//sağ
+	if(!lbVisible(-dx, x0 - xmax, tE, tL)) return false;
+	//alt
+	if(!lbVisible(dy, ymin - y0, tE, tL)) return false;
+	//üst
+	if(!lbVisible(-dy, y0 - ymax, tE, tL)) return false;
+
+	if(tL < 1.0)
+	{
+		x1 = x0 + dx * tL;
+        y1 = y0 + dy * tL;
+	}
+	if(tE > 0.0)
+	{
+        x0 = x0 + dx * tE;
+        y0 = y0 + dy * tE;
+	}
+
+	return true;
+}
+*/
+bool Scene::lbClipping(Vec4WithColor &v0, Vec4WithColor &v1)
+{
+    // Parametric range
+    double tE = 0.0;   // entering
+    double tL = 1.0;   // leaving
+
+    // Copy original endpoints (so we can safely interpolate)
+    Vec4WithColor p0 = v0;
+    Vec4WithColor p1 = v1;
+
+    double x0 = p0.x, y0 = p0.y, z0 = p0.z;
+    double x1 = p1.x, y1 = p1.y, z1 = p1.z;
+
+    double dx = x1 - x0;
+    double dy = y1 - y0;
+    double dz = z1 - z0;
+
+    // NDC clipping box
+    const double xmin = -1.0, xmax = 1.0;
+    const double ymin = -1.0, ymax = 1.0;
+    const double zmin = -1.0, zmax = 1.0;
+
+    // Liang–Barsky tests 
+    if (!visible(dx,   xmin - x0, tE, tL)) return false; // left
+    if (!visible(-dx,  x0   - xmax, tE, tL)) return false; // right
+
+    if (!visible(dy,   ymin - y0, tE, tL)) return false; // bottom
+    if (!visible(-dy,  y0   - ymax, tE, tL)) return false; // top
+
+    if (!visible(dz,   zmin - z0, tE, tL)) return false; // front
+    if (!visible(-dz,  z0   - zmax, tE, tL)) return false; // back
+
+    if (tL < 1.0)
+    {
+        x1 = x0 + dx * tL;
+        y1 = y0 + dy * tL;
+        z1 = z0 + dz * tL;
+    }
+
+    if (tE > 0.0)
+    {
+        x0 = x0 + dx * tE;
+        y0 = y0 + dy * tE;
+        z0 = z0 + dz * tE;
+    }
+
+    Color c0 = p0.color;
+    Color c1 = p1.color;
+
+    Color newC0 = c0;
+    Color newC1 = c1;
+
+    if (tE > 0.0)
+    {
+        newC0.r = c0.r + tE * (c1.r - c0.r);
+        newC0.g = c0.g + tE * (c1.g - c0.g);
+        newC0.b = c0.b + tE * (c1.b - c0.b);
+    }
+
+    if (tL < 1.0)
+    {
+        newC1.r = c0.r + tL * (c1.r - c0.r);
+        newC1.g = c0.g + tL * (c1.g - c0.g);
+        newC1.b = c0.b + tL * (c1.b - c0.b);
+    }
+
+    v0.x = x0; v0.y = y0; v0.z = z0; v0.color = newC0;
+    v1.x = x1; v1.y = y1; v1.z = z1; v1.color = newC1;
+
+    return true;
 }

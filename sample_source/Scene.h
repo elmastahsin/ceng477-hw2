@@ -35,6 +35,7 @@ public:
 	int makeBetweenZeroAnd255(double value);
 	void writeImageToPPMFile(Camera *camera);
 	void forwardRenderingPipeline(Camera *camera);
+	bool Scene::lbClipping(Vec4WithColor &v0, Vec4WithColor &v1);
 };
 
 #endif
