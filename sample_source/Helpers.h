@@ -12,6 +12,7 @@
 #include "Rotation.h"
 #include "Scaling.h"
 
+#include "Camera.h"
 /*
  * Calculate cross product of vec3 a, vec3 b and return resulting vec3.
  */
@@ -81,5 +82,10 @@ Vec4WithColor multiplyMatrixWithVec4WithColor(Matrix4 m, Vec4WithColor v);
 Matrix4 translationMatrix(Translation *t);
 Matrix4 rotationMatrix(Rotation *r);
 Matrix4 scalingMatrix(Scaling *s);
+
+Matrix4 cameraTransformationMatrix(Camera *cam);
+Matrix4 perspectiveMatrix(Camera *c);
+Matrix4 orthographicMatrix(Camera *c);
+Matrix4 viewportMatrix(Camera *c);
 
 #endif

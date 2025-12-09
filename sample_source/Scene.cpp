@@ -363,6 +363,13 @@ void Scene::forwardRenderingPipeline(Camera *camera)
 {
 	// TODO: Implement this function
 
+	//camera matrixi oluştur
+	Matrix4 camMatrix;
+	Matrix4 projMatrix;
+	Matrix4 vpMatrix; 
+
+	vector<Triangle *> newTriangles;
+	
 	//her mesh için matriceleri oluştur 
 	for(int i=0; i < this->instances.size(); i++){
 		Instance currentInstance = *(this->instances[i]);
@@ -388,15 +395,97 @@ void Scene::forwardRenderingPipeline(Camera *camera)
 			}
 			
 			modelMatrix = multiplyMatrixWithMatrix(transformation_matrix, modelMatrix);
-		}
 
-		//meshlere uygula
+			Mesh currentMesh = currentInstance.mesh;
+
+			for(int k=0; k < currentMesh.numberOfTriangles; k++){
+				Triangle *currentTriangle = new Triangle(currentMesh.triangles[k]);
+
+				Vec4WithColor v1(currentTriangle->v1.x, currentTriangle->v1.y, currentTriangle->v1.z, 1.0, currentTriangle->v1.color);
+				Vec4WithColor v2(currentTriangle->v2.x, currentTriangle->v2.y, currentTriangle->v2.z, 1.0, currentTriangle->v2.color);
+				Vec4WithColor v3(currentTriangle->v3.x, currentTriangle->v3.y, currentTriangle->v3.z, 1.0, currentTriangle->v3.color);
+
+				//model matrix uygula
+				v1 = multiplyMatrixWithVec4WithColor(modelMatrix, v1);
+				v2 = multiplyMatrixWithVec4WithColor(modelMatrix, v2);	
+				v3 = multiplyMatrixWithVec4WithColor(modelMatrix, v3);
+
+				//view matrix uygula
+				camMatrix = cameraTransformationMatrix(camera);
+				v1 = multiplyMatrixWithVec4WithColor(camMatrix, v1);
+				v2 = multiplyMatrixWithVec4WithColor(camMatrix, v2);
+				v3 = multiplyMatrixWithVec4WithColor(camMatrix, v3);
+
+				//projection matrix uygula
+				if(camera->projectionType == PERSPECTIVE_PROJECTION){
+					projMatrix = perspectiveMatrix(camera);
+				}
+				else{
+					projMatrix = orthographicMatrix(camera);
+				}
+
+				v1 = multiplyMatrixWithVec4WithColor(projMatrix, v1);
+				v2 = multiplyMatrixWithVec4WithColor(projMatrix, v2);
+				v3 = multiplyMatrixWithVec4WithColor(projMatrix, v3);
+
+				//viewport matrix uygula
+				vpMatrix = viewportMatrix(camera);
+				v1 = multiplyMatrixWithVec4WithColor(vpMatrix, v1);
+				v2 = multiplyMatrixWithVec4WithColor(vpMatrix, v2);
+				v3 = multiplyMatrixWithVec4WithColor(vpMatrix, v3);
+
+				//verticeleri homogene böl
+				v1.x = v1.x / v1.t;
+				v1.y = v1.y / v1.t;
+				v1.z = v1.z / v1.t;
+
+				v2.x = v2.x / v2.t;
+				v2.y = v2.y / v2.t;
+				v2.z = v2.z / v2.t;
+
+				v3.x = v3.x / v3.t;
+				v3.y = v3.y / v3.t;
+				v3.z = v3.z / v3.t;
+
+				//yeni üçgeni ekle
+				newTriangles.push_back(currentTriangle);
+
+			}
+		}
+	}
+
+
+	//backface culling 
+	if(this->cullingEnabled){
+		//yeni normalleri hesapla
+
+		for(int i=0; i < newTriangles.size(); i++){
+			Triangle *tri = newTriangles[i];
+
+			Vec3 a(tri->v1.x, tri->v1.y, tri->v1.z);
+			Vec3 b(tri->v2.x, tri->v2.y, tri->v2.z);
+			Vec3 c(tri->v3.x, tri->v3.y, tri->v3.z);
+
+			Vec3 normal = tri->triangleNormal(a, b, c);
+
+			Vec3 v = a;
+			double nv = dotProductVec3(normal, v);
+
+			//dot product pozitifse üçgeni sil
+			if(nv > 0){
+				newTriangles.erase(newTriangles.begin() + i);
+				i--; 
+			}
+		}
 
 
 	}
 
+	//clipping  
 
-	// kamera için projection matrix oluştur
+
+
+	//rasterization
 
 	
 
