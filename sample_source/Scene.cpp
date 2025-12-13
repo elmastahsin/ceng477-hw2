@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <cmath>
+#include <algorithm>
 
 #include "tinyxml2.h"
 #include "Triangle.h"
@@ -363,123 +364,133 @@ void Scene::forwardRenderingPipeline(Camera *camera)
 {
 	// TODO: Implement this function
 
-	//camera matrixi oluştur
+	// camera matrixi s
 	Matrix4 camMatrix;
 	Matrix4 projMatrix;
-	Matrix4 vpMatrix; 
+	Matrix4 vpMatrix;
 
 	vector<Triangle *> newTriangles;
-	
+
 	camMatrix = cameraTransformationMatrix(camera);
 
-	//projection matrix 
-	if(camera->projectionType == PERSPECTIVE_PROJECTION){
+	// projection matrix
+	if (camera->projectionType == PERSPECTIVE_PROJECTION)
+	{
 		projMatrix = perspectiveMatrix(camera);
 	}
-	else{
+	else
+	{
 		projMatrix = orthographicMatrix(camera);
 	}
 
-
 	vpMatrix = viewportMatrix(camera);
 
-	//her mesh için matriceleri oluştur 
-	for(int i=0; i < this->instances.size(); i++){
-		newTriangles.clear(); //her instance için yeni üçgenler listesi oluştur
+	// her mesh için matriceleri oluştur
+	for (int i = 0; i < this->instances.size(); i++)
+	{
+		newTriangles.clear(); // her instance için yeni üçgenler listesi oluştur
 		Instance currentInstance = *(this->instances[i]);
 		Matrix4 modelMatrix = getIdentityMatrix();
 
-		//model matrixi oluştur
-		for(int j=0; j < currentInstance.numberOfTransformations; j++){
+		// model matrixi oluştur
+		for (int j = 0; j < currentInstance.numberOfTransformations; j++)
+		{
 			char tType = currentInstance.transformationTypes[j];
 			int tId = currentInstance.transformationIds[j];
 
 			Matrix4 transformation_matrix;
-			if(tType == 't'){
+			if (tType == 't')
+			{
 				Translation *t = this->translations[tId - 1];
 				transformation_matrix = translationMatrix(t);
 			}
-			else if(tType == 's'){
+			else if (tType == 's')
+			{
 				Scaling *s = this->scalings[tId - 1];
 				transformation_matrix = scalingMatrix(s);
 			}
-			else if(tType == 'r'){
+			else if (tType == 'r')
+			{
 				Rotation *r = this->rotations[tId - 1];
 				transformation_matrix = rotationMatrix(r);
 			}
-			
+
 			modelMatrix = multiplyMatrixWithMatrix(transformation_matrix, modelMatrix);
 		}
 
 		Mesh currentMesh = currentInstance.mesh;
 
-		for(int k=0; k < currentMesh.numberOfTriangles; k++){
+		for (int k = 0; k < currentMesh.numberOfTriangles; k++)
+		{
 			Triangle *currentTriangle = new Triangle(currentMesh.triangles[k]);
 
 			Vec4WithColor v1(currentTriangle->v1.x, currentTriangle->v1.y, currentTriangle->v1.z, 1.0, currentTriangle->v1.color);
 			Vec4WithColor v2(currentTriangle->v2.x, currentTriangle->v2.y, currentTriangle->v2.z, 1.0, currentTriangle->v2.color);
 			Vec4WithColor v3(currentTriangle->v3.x, currentTriangle->v3.y, currentTriangle->v3.z, 1.0, currentTriangle->v3.color);
 
-			//model matrix uygula
+			// model matrix 
 			v1 = multiplyMatrixWithVec4WithColor(modelMatrix, v1);
-			v2 = multiplyMatrixWithVec4WithColor(modelMatrix, v2);	
+			v2 = multiplyMatrixWithVec4WithColor(modelMatrix, v2);
 			v3 = multiplyMatrixWithVec4WithColor(modelMatrix, v3);
 
-			//view matrix uygula
+			// view matrix 
 			v1 = multiplyMatrixWithVec4WithColor(camMatrix, v1);
 			v2 = multiplyMatrixWithVec4WithColor(camMatrix, v2);
 			v3 = multiplyMatrixWithVec4WithColor(camMatrix, v3);
+			// backface culling
+			if (this->cullingEnabled)
+			{
+				Vec3 a(v1.x, v1.y, v1.z);
+				Vec3 b(v2.x, v2.y, v2.z);
+				Vec3 c(v3.x, v3.y, v3.z);
 
-			//projection matrix uygula
+				// edge vektörleri
+				Vec3 edge1 = subtractVec3(b, a);
+				Vec3 edge2 = subtractVec3(c, a);
+
+				// normal = edge1 x edge2
+				Vec3 normal = crossProductVec3(edge1, edge2);
+
+				// view vector olarak a noktasını kullan (camera space'te origin (0,0,0))
+				// n · v > 0 ise arka yüz
+				double nv = dotProductVec3(normal, a);
+
+				if (nv > 0)
+				{
+					delete currentTriangle;
+					continue; // Bu üçgeni atla, arka yüz
+				}
+			}
+
+			// projection matrix uygula
 			v1 = multiplyMatrixWithVec4WithColor(projMatrix, v1);
 			v2 = multiplyMatrixWithVec4WithColor(projMatrix, v2);
 			v3 = multiplyMatrixWithVec4WithColor(projMatrix, v3);
 
-			//vertice perspective divide
-			if(v1.t != 0.0) {
+			// vertice perspective divide
+			if (v1.t != 0.0)
+			{
 				v1.x = v1.x / v1.t;
 				v1.y = v1.y / v1.t;
 				v1.z = v1.z / v1.t;
 				v1.t = 1.0;
 			}
 
-			if(v2.t != 0.0){
+			if (v2.t != 0.0)
+			{
 				v2.x = v2.x / v2.t;
 				v2.y = v2.y / v2.t;
 				v2.z = v2.z / v2.t;
 				v2.t = 1.0;
 			}
 
-			if(v3.t != 0.0){
+			if (v3.t != 0.0)
+			{
 				v3.x = v3.x / v3.t;
 				v3.y = v3.y / v3.t;
 				v3.z = v3.z / v3.t;
 				v3.t = 1.0;
 			}
-
-			/*
-			//viewport matrix uygula
-			v1 = multiplyMatrixWithVec4WithColor(vpMatrix, v1);
-			v2 = multiplyMatrixWithVec4WithColor(vpMatrix, v2);
-			v3 = multiplyMatrixWithVec4WithColor(vpMatrix, v3);
-
-			//yeni üçgeni ekle, current triangle koordinatları güncelle
-			currentTriangle->v1.x = v1.x;
-			currentTriangle->v1.y = v1.y;
-			currentTriangle->v1.z = v1.z;
-			currentTriangle->v1.color = v1.color;
-			currentTriangle->v2.x = v2.x;
-			currentTriangle->v2.y = v2.y;
-			currentTriangle->v2.z = v2.z;
-			currentTriangle->v2.color = v2.color;
-			currentTriangle->v3.x = v3.x;
-			currentTriangle->v3.y = v3.y;
-			currentTriangle->v3.z = v3.z;
-			currentTriangle->v3.color = v3.color;
-			newTriangles.push_back(currentTriangle);
-			*/
-
-						
 			// --- wireframe clipping in NDC (optional, for WIREFRAME_INSTANCE) ---
 			if (currentInstance.instanceType == WIREFRAME_INSTANCE)
 			{
@@ -494,6 +505,8 @@ void Scene::forwardRenderingPipeline(Camera *camera)
 
 					// Now you can draw this edge (midpoint/Bresenham) using e1v0/e1v1
 					// e.g. drawLineMidpoint(e1v0, e1v1);
+					// rasterization
+					lineRasterizer(e1v0, e1v1, camera);
 				}
 
 				Vec4WithColor e2v0 = v2;
@@ -503,6 +516,8 @@ void Scene::forwardRenderingPipeline(Camera *camera)
 					e2v0 = multiplyMatrixWithVec4WithColor(vpMatrix, e2v0);
 					e2v1 = multiplyMatrixWithVec4WithColor(vpMatrix, e2v1);
 					// drawLineMidpoint(e2v0, e2v1);
+					// rasterization
+					lineRasterizer(e2v0, e2v1, camera);
 				}
 
 				Vec4WithColor e3v0 = v3;
@@ -512,6 +527,9 @@ void Scene::forwardRenderingPipeline(Camera *camera)
 					e3v0 = multiplyMatrixWithVec4WithColor(vpMatrix, e3v0);
 					e3v1 = multiplyMatrixWithVec4WithColor(vpMatrix, e3v1);
 					// drawLineMidpoint(e3v0, e3v1);
+					// rasterization
+
+					lineRasterizer(e3v0, e3v1, camera);
 				}
 
 				// For wireframe, you *don't* need to push this triangle into newTriangles.
@@ -525,189 +543,306 @@ void Scene::forwardRenderingPipeline(Camera *camera)
 				v2 = multiplyMatrixWithVec4WithColor(vpMatrix, v2);
 				v3 = multiplyMatrixWithVec4WithColor(vpMatrix, v3);
 
-				currentTriangle->v1.x = v1.x; currentTriangle->v1.y = v1.y; currentTriangle->v1.z = v1.z;
+				currentTriangle->v1.x = v1.x;
+				currentTriangle->v1.y = v1.y;
+				currentTriangle->v1.z = v1.z;
 				currentTriangle->v1.color = v1.color;
-				currentTriangle->v2.x = v2.x; currentTriangle->v2.y = v2.y; currentTriangle->v2.z = v2.z;
+				currentTriangle->v2.x = v2.x;
+				currentTriangle->v2.y = v2.y;
+				currentTriangle->v2.z = v2.z;
 				currentTriangle->v2.color = v2.color;
-				currentTriangle->v3.x = v3.x; currentTriangle->v3.y = v3.y; currentTriangle->v3.z = v3.z;
+				currentTriangle->v3.x = v3.x;
+				currentTriangle->v3.y = v3.y;
+				currentTriangle->v3.z = v3.z;
 				currentTriangle->v3.color = v3.color;
 
 				newTriangles.push_back(currentTriangle);
-			}
-
-		}
-
-		//backface culling 
-		if(this->cullingEnabled){
-			//yeni normalleri hesapla
-
-			for(int i=0; i < newTriangles.size(); i++){
-				Triangle *tri = newTriangles[i];
-
-				Vec3 a(tri->v1.x, tri->v1.y, tri->v1.z);
-				Vec3 b(tri->v2.x, tri->v2.y, tri->v2.z);
-				Vec3 c(tri->v3.x, tri->v3.y, tri->v3.z);
-
-				Vec3 normal = tri->triangleNormal(a, b, c);
-
-				Vec3 v = a;
-				double nv = dotProductVec3(normal, v);
-
-				//dot product pozitifse üçgeni sil
-				if(nv > 0){
-					newTriangles.erase(newTriangles.begin() + i);
-					i--; 
-				}
+				// draw triangles
+				drawTriangleRasterization(currentTriangle, camera);
 			}
 		}
-
-/*
-		//liang-barsky clipping eğer wireframe ise 
-		if(currentInstance.instanceType == WIREFRAME_INSTANCE){
-			//her üçgen için
-			for(int i=0; i < newTriangles.size(); i++){
-				Triangle *tri = newTriangles[i];
-
-			}
-		}
-		else{
-			//solid instance ise clipping yok
-			
-		
-		}
-*/
-
-	//rasterization
-
-	//draw triangles
-
 	}
-
-	
 }
 
 bool visible(double den, double num, double &tE, double &tL)
 {
 	double t;
-	if(num>0) return false;
-
-	if(den>0)
-	{		
-		t = num/den;
-		if(t>tL) return false;
-		if(t>tE) tE = t;
-	}
-	else
+	if (den > 0) // Potentially entering
 	{
-		t = num/den;
-		if(t<tE) return false;
-		if(t<tL) tL = t;
+		t = num / den;
+		if (t > tL)
+			return false; // Enters after leaving
+		if (t > tE)
+			tE = t;
 	}
-	
-	return true;
-}
-
-/*
-bool lbClipping(double xmin, double xmax, double ymin, double ymax, 
-					double &x0, double &y0, double &x1, double &y1)
-{
-	double dx = x1 - x0;
-	double dy = y1 - y0;
-
-	double tE = 0.0;
-	double tL = 1.0;
-
-	//sol
-	if(!lbVisible(dx, xmin - x0, tE, tL)) return false;
-	//sağ
-	if(!lbVisible(-dx, x0 - xmax, tE, tL)) return false;
-	//alt
-	if(!lbVisible(dy, ymin - y0, tE, tL)) return false;
-	//üst
-	if(!lbVisible(-dy, y0 - ymax, tE, tL)) return false;
-
-	if(tL < 1.0)
+	else if (den < 0) // Potentially leaving
 	{
-		x1 = x0 + dx * tL;
-        y1 = y0 + dy * tL;
+		t = num / den;
+		if (t < tE)
+			return false; // Leaves before entering
+		if (t < tL)
+			tL = t;
 	}
-	if(tE > 0.0)
+	else // den == 0, line is parallel to edge
 	{
-        x0 = x0 + dx * tE;
-        y0 = y0 + dy * tE;
+		if (num > 0)
+			return false; // Line is outside
+						  // else: line is inside, continue
 	}
 
 	return true;
 }
-*/
 bool Scene::lbClipping(Vec4WithColor &v0, Vec4WithColor &v1)
 {
-    // Parametric range
-    double tE = 0.0;   // entering
-    double tL = 1.0;   // leaving
+	double tE = 0.0; // entering
+	double tL = 1.0; // leaving
 
-    // Copy original endpoints (so we can safely interpolate)
-    Vec4WithColor p0 = v0;
-    Vec4WithColor p1 = v1;
+	Vec4WithColor p0 = v0;
+	Vec4WithColor p1 = v1;
 
-    double x0 = p0.x, y0 = p0.y, z0 = p0.z;
-    double x1 = p1.x, y1 = p1.y, z1 = p1.z;
+	double x0 = p0.x, y0 = p0.y, z0 = p0.z;
+	double x1 = p1.x, y1 = p1.y, z1 = p1.z;
 
-    double dx = x1 - x0;
-    double dy = y1 - y0;
-    double dz = z1 - z0;
+	double dx = x1 - x0;
+	double dy = y1 - y0;
+	double dz = z1 - z0;
 
-    // NDC clipping box
-    const double xmin = -1.0, xmax = 1.0;
-    const double ymin = -1.0, ymax = 1.0;
-    const double zmin = -1.0, zmax = 1.0;
+	const double xmin = -1.0, xmax = 1.0;
+	const double ymin = -1.0, ymax = 1.0;
+	const double zmin = -1.0, zmax = 1.0;
 
-    // Liang–Barsky tests 
-    if (!visible(dx,   xmin - x0, tE, tL)) return false; // left
-    if (!visible(-dx,  x0   - xmax, tE, tL)) return false; // right
+	// liang barsky
+	if (!visible(dx, xmin - x0, tE, tL))
+		return false; // left
+	if (!visible(-dx, x0 - xmax, tE, tL))
+		return false; // right
 
-    if (!visible(dy,   ymin - y0, tE, tL)) return false; // bottom
-    if (!visible(-dy,  y0   - ymax, tE, tL)) return false; // top
+	if (!visible(dy, ymin - y0, tE, tL))
+		return false; // bottom
+	if (!visible(-dy, y0 - ymax, tE, tL))
+		return false; // top
 
-    if (!visible(dz,   zmin - z0, tE, tL)) return false; // front
-    if (!visible(-dz,  z0   - zmax, tE, tL)) return false; // back
+	if (!visible(dz, zmin - z0, tE, tL))
+		return false; // front
+	if (!visible(-dz, z0 - zmax, tE, tL))
+		return false; // back
 
-    if (tL < 1.0)
-    {
-        x1 = x0 + dx * tL;
-        y1 = y0 + dy * tL;
-        z1 = z0 + dz * tL;
-    }
+	if (tL < 1.0)
+	{
+		x1 = x0 + dx * tL;
+		y1 = y0 + dy * tL;
+		z1 = z0 + dz * tL;
+	}
 
-    if (tE > 0.0)
-    {
-        x0 = x0 + dx * tE;
-        y0 = y0 + dy * tE;
-        z0 = z0 + dz * tE;
-    }
+	if (tE > 0.0)
+	{
+		x0 = x0 + dx * tE;
+		y0 = y0 + dy * tE;
+		z0 = z0 + dz * tE;
+	}
 
-    Color c0 = p0.color;
-    Color c1 = p1.color;
+	Color c0 = p0.color;
+	Color c1 = p1.color;
 
-    Color newC0 = c0;
-    Color newC1 = c1;
+	Color newC0 = c0;
+	Color newC1 = c1;
 
-    if (tE > 0.0)
-    {
-        newC0.r = c0.r + tE * (c1.r - c0.r);
-        newC0.g = c0.g + tE * (c1.g - c0.g);
-        newC0.b = c0.b + tE * (c1.b - c0.b);
-    }
+	if (tE > 0.0)
+	{
+		newC0.r = c0.r + tE * (c1.r - c0.r);
+		newC0.g = c0.g + tE * (c1.g - c0.g);
+		newC0.b = c0.b + tE * (c1.b - c0.b);
+	}
 
-    if (tL < 1.0)
-    {
-        newC1.r = c0.r + tL * (c1.r - c0.r);
-        newC1.g = c0.g + tL * (c1.g - c0.g);
-        newC1.b = c0.b + tL * (c1.b - c0.b);
-    }
+	if (tL < 1.0)
+	{
+		newC1.r = c0.r + tL * (c1.r - c0.r);
+		newC1.g = c0.g + tL * (c1.g - c0.g);
+		newC1.b = c0.b + tL * (c1.b - c0.b);
+	}
 
-    v0.x = x0; v0.y = y0; v0.z = z0; v0.color = newC0;
-    v1.x = x1; v1.y = y1; v1.z = z1; v1.color = newC1;
+	v0.x = x0;
+	v0.y = y0;
+	v0.z = z0;
+	v0.color = newC0;
+	v1.x = x1;
+	v1.y = y1;
+	v1.z = z1;
+	v1.color = newC1;
 
-    return true;
+	return true;
+}
+void Scene::lineRasterizer(Vec4WithColor &v1, Vec4WithColor &v2, Camera *camera)
+{
+	int x0 = int(v1.x);
+	int y0 = int(v1.y);
+	int x1 = int(v2.x);
+	int y1 = int(v2.y);
+	double z0 = v1.z;
+	double z1 = v2.z;
+	Color c0 = v1.color;
+	Color c1 = v2.color;
+
+	int dx = abs(x1 - x0);
+	int dy = abs(y1 - y0);
+	bool steep = dy > dx;
+	if (steep)
+	{
+		swap(x0, y0);
+		swap(x1, y1);
+	}
+
+	if (x0 > x1)
+	{
+		swap(x0, x1);
+		swap(y0, y1);
+		swap(z0, z1);
+		swap(c0, c1);
+	}
+
+	dx = x1 - x0;
+	dy = abs(y1 - y0);
+	double dz = z1 - z0;
+
+	int numSteps = dx;
+	if (numSteps == 0)
+		numSteps = 1;
+
+	double z = z0;
+	double zInc = dz / numSteps;
+
+	Color c = c0;
+	Color dc;
+	dc.r = (c1.r - c0.r) / numSteps;
+	dc.g = (c1.g - c0.g) / numSteps;
+	dc.b = (c1.b - c0.b) / numSteps;
+
+	int d = 2 * dy - dx;
+	int yStep = (y1 > y0) ? 1 : -1;
+	int y = y0;
+
+	for (int x = x0; x <= x1; x++)
+	{
+		int drawX = steep ? y : x;
+		int drawY = steep ? x : y;
+
+		if (drawX >= 0 && drawX < camera->horRes &&
+			drawY >= 0 && drawY < camera->verRes)
+		{
+			if (z < this->depth[drawX + 0.5][drawY])
+			{
+				Color pixelColor;
+				pixelColor.r = makeBetweenZeroAnd255(c.r);
+				pixelColor.g = makeBetweenZeroAnd255(c.g);
+				pixelColor.b = makeBetweenZeroAnd255(c.b);
+
+				assignColorToPixel(drawX, drawY, pixelColor);
+				this->depth[drawX][drawY] = z;
+			}
+		}
+
+		if (d >= 0)
+		{
+			y += yStep;
+			d -= 2 * dx;
+		}
+		d += 2 * dy;
+
+		z += zInc;
+		c.r += dc.r;
+		c.g += dc.g;
+		c.b += dc.b;
+	}
+}
+void Scene::drawTriangleRasterization(Triangle *triangle, Camera *camera)
+{
+	/* barycentric algo */
+	/*
+	for y = ymin to ymax do:
+		for x = xmin to xmax do:
+			α = Τ
+			𝑓 12(𝑥, 𝑦) 𝑓 12(𝑥0, 𝑦0)
+			𝛽 = Τ
+			𝑓 20(𝑥, 𝑦) 𝑓 20(𝑥1, 𝑦1)
+			𝛾 = Τ
+			𝑓 01(𝑥, 𝑦) 𝑓 01(𝑥2, 𝑦2)
+			if 𝛼 ≥ 0 and 𝛽 ≥ 0 and 𝛾 ≥ 0 then:
+				c = 𝛼c0 + 𝛽c1 + 𝛾c2
+				draw(x, y, round(c))
+	*/
+	double x0 = triangle->v1.x;
+	double y0 = triangle->v1.y;
+	double z0 = triangle->v1.z;
+	double x1 = triangle->v2.x;
+	double y1 = triangle->v2.y;
+	double z1 = triangle->v2.z;
+	double x2 = triangle->v3.x;
+	double y2 = triangle->v3.y;
+	double z2 = triangle->v3.z;
+
+	Color c0 = triangle->v1.color;
+	Color c1 = triangle->v2.color;
+	Color c2 = triangle->v3.color;
+
+	int xmin = (std::min({x0, x1, x2}));
+	int xmax = (std::max({x0, x1, x2}));
+	int ymin = (std::min({y0, y1, y2}));
+	int ymax = (std::max({y0, y1, y2}));
+
+	xmin = std::max(0, xmin);
+	xmax = std::min(camera->horRes - 1, xmax);
+	ymin = std::max(0, ymin);
+	ymax = std::min(camera->verRes - 1, ymax);
+
+	// f12(x0,y0)=y1-y2)*x0 + (x2-x1)*y0 + x1*y2 - x2*y1
+	double f12_denom = (y1 - y2) * x0 + (x2 - x1) * y0 + x1 * y2 - x2 * y1;
+	// f20(x1,y1)=(y2-y0)*x1 + (x0-x2)*y1 + x2*y0 - x0*y2
+	double f20_denom = (y2 - y0) * x1 + (x0 - x2) * y1 + x2 * y0 - x0 * y2;
+	// f01(x2,y2)=(y0-y1)*x2 + (x1-x0)*y2 + x0*y1 - x1*y0
+	double f01_denom = (y0 - y1) * x2 + (x1 - x0) * y2 + x0 * y1 - x1 * y0;
+
+	for (int y = ymin; y <= ymax; y++)
+	{
+		if (y < 0 || y >= this->image[0].size())
+		{
+			continue;
+		}
+		for (int x = xmin; x <= xmax; x++)
+		{
+			if (x < 0 || x >= this->image.size())
+			{
+				continue;
+			}
+			double px = x + 0.5;
+			double py = y + 0.5;
+			// f_12(x, y)
+			double f12 = (y1 - y2) * px + (x2 - x1) * py + x1 * y2 - x2 * y1;
+			// f_20(x, y)
+			double f20 = (y2 - y0) * px + (x0 - x2) * py + x2 * y0 - x0 * y2;
+			// f_01(x, y)
+			double f01 = (y0 - y1) * px + (x1 - x0) * py + x0 * y1 - x1 * y0;
+
+			// barycentric koordinatlar
+			double alpha = f12 / f12_denom;
+			double beta = f20 / f20_denom;
+			double gamma = f01 / f01_denom;
+
+			if (alpha >= 0 && beta >= 0 && gamma >= 0)
+			{
+
+				double z = alpha * z0 + beta * z1 + gamma * z2;
+
+				if (z <= this->depth[x][y])
+				{
+					Color c;
+					c.r = alpha * c0.r + beta * c1.r + gamma * c2.r;
+					c.g = alpha * c0.g + beta * c1.g + gamma * c2.g;
+					c.b = alpha * c0.b + beta * c1.b + gamma * c2.b;
+
+					assignColorToPixel(x, y, c);
+					this->depth[x][y] = z;
+				}
+			}
+		}
+	}
 }

@@ -22,7 +22,7 @@ std::ostream &operator<<(std::ostream &os, const Triangle &t)
     return os;
 }
 
-Vec3 triangleNormal(const Vec3 &a,
+Vec3 Triangle::triangleNormal(const Vec3 &a,
                                     const Vec3 &b,
                                     const Vec3 &c)
 {

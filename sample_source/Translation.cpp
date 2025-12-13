@@ -1,4 +1,6 @@
+#include <iostream>
 #include <iomanip>
+#include <ostream>
 #include "Translation.h"
 
 Translation::Translation()

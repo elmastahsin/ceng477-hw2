@@ -1,4 +1,5 @@
 #include <iomanip>
+#include <ostream>
 #include "Matrix4.h"
 
 Matrix4::Matrix4()

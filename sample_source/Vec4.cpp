@@ -1,4 +1,6 @@
+#include <iostream>
 #include <iomanip>
+#include <ostream>
 #include "Color.h"
 #include "Vec3.h"
 #include "Vec4.h"
