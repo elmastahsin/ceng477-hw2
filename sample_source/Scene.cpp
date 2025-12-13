@@ -364,7 +364,7 @@ void Scene::forwardRenderingPipeline(Camera *camera)
 {
 	// TODO: Implement this function
 
-	// camera matrixi s
+	// camera matrixi 
 	Matrix4 camMatrix;
 	Matrix4 projMatrix;
 	Matrix4 vpMatrix;
@@ -385,14 +385,14 @@ void Scene::forwardRenderingPipeline(Camera *camera)
 
 	vpMatrix = viewportMatrix(camera);
 
-	// her mesh için matriceleri oluştur
+	// her mesh için matriceleri oluşturulacak
 	for (int i = 0; i < this->instances.size(); i++)
 	{
-		newTriangles.clear(); // her instance için yeni üçgenler listesi oluştur
+		newTriangles.clear(); // her instance icin newTriangle sifirla
 		Instance currentInstance = *(this->instances[i]);
 		Matrix4 modelMatrix = getIdentityMatrix();
 
-		// model matrixi oluştur
+		// model matrixi 
 		for (int j = 0; j < currentInstance.numberOfTransformations; j++)
 		{
 			char tType = currentInstance.transformationTypes[j];
@@ -444,7 +444,7 @@ void Scene::forwardRenderingPipeline(Camera *camera)
 				Vec3 b(v2.x, v2.y, v2.z);
 				Vec3 c(v3.x, v3.y, v3.z);
 
-				// edge vektörleri
+				// edge vektorlero
 				Vec3 edge1 = subtractVec3(b, a);
 				Vec3 edge2 = subtractVec3(c, a);
 
