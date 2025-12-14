@@ -458,7 +458,7 @@ void Scene::forwardRenderingPipeline(Camera *camera)
 				if (nv > 0)
 				{
 					delete currentTriangle;
-					continue; // Bu üçgeni atla, arka yüz
+					continue; //üçgen arka yüzde 
 				}
 			}
 
@@ -491,20 +491,18 @@ void Scene::forwardRenderingPipeline(Camera *camera)
 				v3.z = v3.z / v3.t;
 				v3.t = 1.0;
 			}
-			// --- wireframe clipping in NDC (optional, for WIREFRAME_INSTANCE) ---
+			//wireframe clipping in NDC 
 			if (currentInstance.instanceType == WIREFRAME_INSTANCE)
 			{
-				// For each edge, make a copy and clip it
+				//for each edge, make a copy and clip it
 				Vec4WithColor e1v0 = v1;
 				Vec4WithColor e1v1 = v2;
 				if (lbClipping(e1v0, e1v1))
 				{
-					// Convert to screen: apply viewport
+					//viewport
 					e1v0 = multiplyMatrixWithVec4WithColor(vpMatrix, e1v0);
 					e1v1 = multiplyMatrixWithVec4WithColor(vpMatrix, e1v1);
 
-					// Now you can draw this edge (midpoint/Bresenham) using e1v0/e1v1
-					// e.g. drawLineMidpoint(e1v0, e1v1);
 					// rasterization
 					lineRasterizer(e1v0, e1v1, camera);
 				}
@@ -515,7 +513,7 @@ void Scene::forwardRenderingPipeline(Camera *camera)
 				{
 					e2v0 = multiplyMatrixWithVec4WithColor(vpMatrix, e2v0);
 					e2v1 = multiplyMatrixWithVec4WithColor(vpMatrix, e2v1);
-					// drawLineMidpoint(e2v0, e2v1);
+					
 					// rasterization
 					lineRasterizer(e2v0, e2v1, camera);
 				}
@@ -526,18 +524,16 @@ void Scene::forwardRenderingPipeline(Camera *camera)
 				{
 					e3v0 = multiplyMatrixWithVec4WithColor(vpMatrix, e3v0);
 					e3v1 = multiplyMatrixWithVec4WithColor(vpMatrix, e3v1);
-					// drawLineMidpoint(e3v0, e3v1);
+				
 					// rasterization
 
 					lineRasterizer(e3v0, e3v1, camera);
 				}
 
-				// For wireframe, you *don't* need to push this triangle into newTriangles.
 			}
 			else
 			{
-				// SOLID instance: no clipping here (as your HW says)
-				// Just do viewport and then store in Triangle / newTriangles as before.
+				// SOLID instance: no clipping
 
 				v1 = multiplyMatrixWithVec4WithColor(vpMatrix, v1);
 				v2 = multiplyMatrixWithVec4WithColor(vpMatrix, v2);
@@ -567,27 +563,26 @@ void Scene::forwardRenderingPipeline(Camera *camera)
 bool visible(double den, double num, double &tE, double &tL)
 {
 	double t;
-	if (den > 0) // Potentially entering
+	if (den > 0) //potentially entering
 	{
 		t = num / den;
 		if (t > tL)
-			return false; // Enters after leaving
+			return false; //enters after leaving
 		if (t > tE)
 			tE = t;
 	}
-	else if (den < 0) // Potentially leaving
+	else if (den < 0) //potentially leaving
 	{
 		t = num / den;
 		if (t < tE)
-			return false; // Leaves before entering
+			return false; //leaves before entering
 		if (t < tL)
 			tL = t;
 	}
 	else // den == 0, line is parallel to edge
 	{
 		if (num > 0)
-			return false; // Line is outside
-						  // else: line is inside, continue
+			return false; //line is outside
 	}
 
 	return true;

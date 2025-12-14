@@ -190,48 +190,48 @@ Matrix4 translationMatrix(Translation *t)
 //alternative method fro m slides
 Matrix4 rotationMatrix(Rotation *r)
 {
-    // Axis from spec: rotation around line through (0,0,0) and (ux,uy,uz)
+    // axis from spec: rotation around line through (0,0,0) and (ux,uy,uz)
     Vec3 axis(r->ux, r->uy, r->uz);
 
-    // 1) u: normalize axis (dönme yönü (ux,uy,uz) – spec ile uyumlu)
+    //u: normalize axis (dönme yönü (ux,uy,uz))
     Vec3 u = axis.unit();
     double ax = std::abs(u.x);
     double ay = std::abs(u.y);
     double az = std::abs(u.z);
 
-    // 2) u ile paralel olmayan v seç (slaytlardaki “Alternative method”)
+    //u ile paralel olmayan v seç 
     Vec3 v;
     if (ax <= ay && ax <= az) {
-        // x en küçük → x=0
+        // x en küçük -> x=0
         v = Vec3(0.0, -u.z, u.y);
     } else if (ay <= ax && ay <= az) {
-        // y en küçük → y=0
+        // y en küçük -> y=0
         v = Vec3(-u.z, 0.0, u.x);
     } else {
-        // z en küçük → z=0
+        // z en küçük -> z=0
         v = Vec3(-u.y, u.x, 0.0);
     }
     v = v.unit();
 
-    // 3) w = u × v   (burada * cross ise böyle, değilse cross(u,v) kullan)
+    //w = u × v 
     Vec3 w = crossProductVec3(u, v).unit();
 
-    // 4) M matrisi (xyz → uvw), tam 4×4
+    //M matrisi (xyz -> uvw)
     Matrix4 M;
     for (int i = 0; i < 4; ++i)
         for (int j = 0; j < 4; ++j)
             M.values[i][j] = 0.0;
 
-    // satırlar: u, v, w, (0 0 0 1)
+    // u, v, w, (0 0 0 1)
     M.values[0][0] = u.x; M.values[0][1] = u.y; M.values[0][2] = u.z; M.values[0][3] = 0.0;
     M.values[1][0] = v.x; M.values[1][1] = v.y; M.values[1][2] = v.z; M.values[1][3] = 0.0;
     M.values[2][0] = w.x; M.values[2][1] = w.y; M.values[2][2] = w.z; M.values[2][3] = 0.0;
     M.values[3][0] = 0.0; M.values[3][1] = 0.0; M.values[3][2] = 0.0; M.values[3][3] = 1.0;
 
-    // 5) M^{-1} = M^T (u,v,w ortonormal → ONB)
+    //M^{-1} = M^T (u,v,w ortonormal -> ONB)
     Matrix4 M_inv = M.transpose();
 
-    // 6) Rx(α): x-ekseni etrafında α derece CCW dönme
+    //Rx(alpha): x-ekseni etrafında alpha derece CCW dönme
     double rad = r->angle * M_PI / 180.0;
     double c = std::cos(rad);
     double s = std::sin(rad);
@@ -244,9 +244,7 @@ Matrix4 rotationMatrix(Rotation *r)
     Rx.values[2][1] =  s;
     Rx.values[2][2] =  c;
 
-    // 7) Slayt formülü: R = M^{-1} * Rx * M
-    // Bu, ekseni (ux,uy,uz) olan ve (0,0,0)'dan geçen doğru etrafında
-    // (ux,uy,uz) yönü boyunca CCW dönmeyi verir (spec ile tam uyumlu).
+    //formül: R = M^{-1} * Rx * M
     Matrix4 R = multiplyMatrixWithMatrix(multiplyMatrixWithMatrix(M_inv, Rx), M);
 
     return R;
